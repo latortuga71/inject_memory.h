@@ -13,3 +13,6 @@ payload:
 
 example:
 	gcc example.c -o example
+
+clean:
+	-rm example victim payload

@@ -1,5 +1,5 @@
-#ifndef INJECT_H_
-#define INJECT_H
+#ifndef INJECT_MEMORY_H_
+#define INJECT_MEMORY_H_
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdarg.h>
@@ -25,14 +25,14 @@
 */
 
 
-bool inject_shellcode(const char* pid_, char* shellcode,size_t shellcode_size);
-bool inject_elf(const char* pid, char* elf_bytes,size_t elf_size);
+extern bool inject_memory_inject_code(const char* pid_, char* shellcode,size_t shellcode_size);
+extern bool inject_memory_inject_elf(const char* pid, char* elf_bytes,size_t elf_size);
 
 #endif
 
 
 
-#ifdef INJECT_IMPLEMENTATION
+#ifdef INJECT_MEMORY_IMPLEMENTATION
 
 typedef struct {
 	uint8_t readable;
@@ -191,8 +191,8 @@ static void parse_region_name(char* name,memory_region_t* region){
 
 
 
-void inject_debug_print(const char* format, ...){
-    #ifdef INJECT_DEBUG
+static void inject_debug_print(const char* format, ...){
+    #ifdef INJECT_MEMORY_DEBUG
     #define INJECT_DEBUG_FLAG 1
     if (INJECT_DEBUG_FLAG){
         va_list args;
@@ -292,7 +292,7 @@ static char* read_memory(pid_t pid, void* address, int length){
 }
 
 
-bool inject_shellcode(const char* pid_, char* shellcode,size_t shellcode_size){
+bool inject_memory_inject_code(const char* pid_, char* shellcode,size_t shellcode_size){
     pid_t pid = atoi(pid_);
 	int status;
 	char maps_buffer[25];
@@ -375,7 +375,7 @@ bool inject_shellcode(const char* pid_, char* shellcode,size_t shellcode_size){
     return true;
 }
 
-bool inject_elf(const char* pid, char* elf_bytes,size_t elf_size){
+bool inject_memory_inject_elf(const char* pid, char* elf_bytes,size_t elf_size){
     fprintf(stderr,"###TODO ADD ELF INJECTION");
     exit(-1);
 }
