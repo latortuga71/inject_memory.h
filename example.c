@@ -9,8 +9,34 @@ int print_usage(char* argvzero){
     fprintf(stderr,"Usage: %s\n",argvzero);
     fprintf(stderr,"    --pid");
     fprintf(stderr,"        Inject into pid. \n");      
+    fprintf(stderr,"    --elf-exec");
+    fprintf(stderr,"        Exec binary in memory using memfd_create. \n");          
     fprintf(stderr,"\n");
     return 1;
+}
+
+typedef struct {
+    int size;
+    char* data;
+} Payload;
+
+static Payload read_elf(const char* path){
+    FILE* f = fopen(path,"rb");
+    fseek(f,0,SEEK_END);
+    size_t file_size = ftell(f);
+    rewind(f);
+    char* payload = (char*)malloc(file_size);
+    size_t nread = fread(payload,sizeof(char),file_size,f);
+    if (nread != file_size){
+        fprintf(stderr,"ERROR: Failed to read file");
+        exit(1);
+    }
+    fclose(f);
+    Payload p = {
+        .size = file_size,
+        .data = payload,
+    };
+    return p;
 }
 
 int main(int argc, char** argv){
@@ -18,6 +44,20 @@ int main(int argc, char** argv){
     argv++;
     if (*argv == NULL)
         return print_usage(binary);
+    else if (strcmp(*argv,"--elf-exec") == 0){
+        argv++;
+        if (*argv == NULL)
+            return print_usage(binary);        
+        Payload payload = read_elf(*argv);
+        bool worked = inject_memory_memfd_execute_elf(payload.data,payload.size,"TESTER",false,true);
+        free(payload.data);
+        if (worked){
+            printf("Worked!");
+        } else {
+            printf("Failed!");
+        }
+        return 0;
+    }
     else if (strcmp(*argv,"--pid") == 0){
         argv++;
         if (*argv == NULL)

